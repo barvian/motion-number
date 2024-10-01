@@ -9,11 +9,20 @@ import {
 } from './formatter'
 import { ServerSafeHTMLElement } from './ssr'
 import styles, { maskHeight, supportsAnimationComposition, supportsLinear } from './styles'
-import { frames, lerp, type CustomPropertyKeyframes, customPropertyFrames } from './util/animate'
+import {
+	frames,
+	lerp,
+	type CustomPropertyKeyframes,
+	customPropertyFrames,
+	supportsShadowRootGetAnimations,
+	supportsAnimationFinished
+} from './util/animate'
 import { BROWSER } from 'esm-env'
 
 export { SlottedTag, slottedStyles, supportsAnimationComposition, supportsLinear } from './styles'
 export * from './formatter'
+
+const canGetAnimationsFinished = supportsShadowRootGetAnimations && supportsAnimationFinished
 
 export const defaultFadeTiming: EffectTiming = { duration: 500, easing: 'ease-out' }
 export const defaultXTiming: EffectTiming = supportsLinear
@@ -30,6 +39,9 @@ export const defaultXTiming: EffectTiming = supportsLinear
 export const defaultYTiming = defaultXTiming
 
 let styleSheet: CSSStyleSheet | undefined
+
+type AnimationsFinishedListener = () => void
+type RemoveAnimationsFinishedListener = () => void
 
 // This one is used internally for framework wrappers, and
 // doesn't include things like i.e. attribute support:
@@ -127,12 +139,33 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 		this.#post!.willUpdate(rect)
 	}
 
+	#animationsFinishedListeners = new Set<AnimationsFinishedListener>()
+
+	onAnimationsFinished(
+		cb: AnimationsFinishedListener
+	): RemoveAnimationsFinishedListener | undefined {
+		this.#animationsFinishedListeners!.add(cb)
+		return () => this.#animationsFinishedListeners!.delete(cb)
+	}
+
+	#handleAnimationsFinished = () => {
+		this.#animationsFinishedListeners!.forEach((cb) => cb())
+		this.#animationsFinishedListeners!.clear()
+	}
+
 	didUpdate() {
 		const rect = this.root ? this.getBoundingClientRect() : new DOMRect()
 		this.#pre!.didUpdate(rect)
 		this.#integer!.didUpdate(rect)
 		this.#fraction!.didUpdate(rect)
 		this.#post!.didUpdate(rect)
+
+		if (canGetAnimationsFinished) {
+			const allFinished = this.shadowRoot!.getAnimations().map((anim) => anim.finished)
+			Promise.all(allFinished)
+				.then(this.#handleAnimationsFinished)
+				.catch(() => {}) // if an animation is cancelled
+		}
 	}
 }
 
@@ -424,6 +457,7 @@ class AnimatePresence {
 	#present = true
 	#onRemove?: OnRemove
 	#animation?: Animation
+	#removeOnAnimationsFinished?: RemoveAnimationsFinishedListener
 
 	constructor(
 		readonly flow: NumberFlowLite,
@@ -449,17 +483,25 @@ class AnimatePresence {
 		if (this.#present === val) return
 		const opacity = getComputedStyle(this.el).getPropertyValue('opacity')
 		this.#animation?.cancel()
+		this.#removeOnAnimationsFinished?.()
 		this.#animation = this.el.animate(
 			{
 				opacity: [opacity, val ? '1' : '0']
 			},
-			this.flow.fadeTiming
+			{
+				...this.flow.fadeTiming,
+				fill: val ? 'none' : 'forwards'
+			}
 		)
-		if (!val)
-			this.#animation!.onfinish = () => {
+		if (!val) {
+			const onFinish = () => {
 				this.el.remove()
 				this.#onRemove?.()
 			}
+			if (canGetAnimationsFinished)
+				this.#removeOnAnimationsFinished = this.flow.onAnimationsFinished(onFinish)
+			else this.#animation.onfinish = onFinish
+		}
 		this.#present = val
 	}
 }

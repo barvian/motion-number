@@ -1,4 +1,10 @@
+import { BROWSER } from 'esm-env'
 import { supportsAtProperty } from '../styles'
+
+export const supportsShadowRootGetAnimations =
+	BROWSER && typeof ShadowRoot.prototype.getAnimations !== 'undefined'
+
+export const supportsAnimationFinished = BROWSER && 'finished' in Animation.prototype
 
 export function frames<F extends string | (number | null)>(
 	durationMs: number,

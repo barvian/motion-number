@@ -30,6 +30,7 @@ export type NumberFlowProps = React.HTMLAttributes<NumberFlowElement> & {
 	value: Value
 	locales?: Intl.LocalesArgument
 	format?: Format
+	willChange?: boolean
 	root?: (typeof NumberFlowElement)['prototype']['root']
 	fadeTiming?: (typeof NumberFlowElement)['prototype']['fadeTiming']
 	xTiming?: (typeof NumberFlowElement)['prototype']['xTiming']
@@ -91,6 +92,7 @@ class NumberFlowPriv extends React.Component<NumberFlowPrivProps> {
 			innerRef,
 			className,
 			parts,
+			willChange,
 			// These are set in updateNonPartsProps, so ignore them here:
 			fadeTiming,
 			xTiming,
@@ -102,10 +104,11 @@ class NumberFlowPriv extends React.Component<NumberFlowPrivProps> {
 			// @ts-expect-error missing types
 			<number-flow
 				ref={this.handleRef}
-				// Have to rename this:
+				// Have to rename these:
 				class={className}
+				will-change={willChange}
 				{...rest}
-				// Make sure parts are set last, everything else is updated:
+				// Make sure parts are set last, so everything else is updated:
 				parts={JSON.stringify(parts)}
 			>
 				<SlottedTag style={slottedStyles}>{parts.formatted}</SlottedTag>
