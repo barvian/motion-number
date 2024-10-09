@@ -1,7 +1,6 @@
 import NumberFlow, { type Format } from '@number-flow/react'
 import clsx from 'clsx/lite'
 import { Bookmark, ChartNoAxesColumn, Heart, Repeat, Share } from 'lucide-react'
-import * as React from 'react'
 
 type Props = {
 	likes: number

@@ -9,7 +9,8 @@ import {
 } from './formatter'
 import { ServerSafeHTMLElement } from './ssr'
 import styles, { opacityDeltaVar, supportsLinear } from './styles'
-import { getDuration, frames, lerp } from './util/animate'
+import { getDuration, frames } from './util/animate'
+import { lerp, getDiffAtPlace } from './util/math'
 import { BROWSER } from 'esm-env'
 
 export { SlottedTag, slottedStyles, supportsAnimationComposition, supportsLinear } from './styles'
@@ -58,6 +59,7 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 	xTiming = defaultXTiming
 	spinTiming = defaultSpinTiming
 	fadeTiming = defaultFadeTiming
+	continuous: boolean | number = false
 	manual = false
 
 	#created = false
@@ -67,13 +69,14 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 	#post?: SymbolSection
 
 	trend: RawTrend = true
-	#computedTrend?: Trend
 
-	getComputedTrend() {
-		return this.#computedTrend
-	}
+	/** @internal */
+	computedTrend?: Trend
 
-	#prevVal?: number | bigint
+	/** @internal */
+	prevVal?: number
+	/** @internal */
+	value?: number
 
 	set parts(newVal: PartitionedParts | undefined) {
 		if (newVal == null) {
@@ -84,6 +87,8 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 
 		// Initialize if needed
 		if (!this.#created) {
+			this.value = value
+
 			// Don't check for declarative shadow DOM because we'll recreate it anyway:
 			this.attachShadow({ mode: 'open' })
 
@@ -133,14 +138,16 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 		} else {
 			// Compute trend
 			if (this.trend === true) {
-				this.#computedTrend = getTrend(value, this.#prevVal)
+				this.computedTrend = getTrend(value, this.prevVal)
 			} else if (this.trend === 'increasing') {
-				this.#computedTrend = Trend.UP
+				this.computedTrend = Trend.UP
 			} else if (this.trend === 'decreasing') {
-				this.#computedTrend = Trend.DOWN
-			} else this.#computedTrend = Trend.NONE
+				this.computedTrend = Trend.DOWN
+			} else this.computedTrend = Trend.NONE
 
 			if (!this.manual) this.willUpdate()
+			// Make sure this.prevVal is set before this.value, so nest this in the conditional:
+			this.value = value
 
 			this.#pre!.update(pre)
 			this.#integer!.update(integer)
@@ -151,10 +158,12 @@ export class NumberFlowLite extends ServerSafeHTMLElement {
 		}
 
 		this.#created = true
-		this.#prevVal = value
 	}
 
 	willUpdate() {
+		// This is here for frameworks that call willUpdate() without updating parts:
+		this.prevVal = this.value
+
 		this.#pre!.willUpdate()
 		this.#integer!.willUpdate()
 		this.#fraction!.willUpdate()
@@ -221,7 +230,7 @@ abstract class Section {
 	) {
 		const comp =
 			part.type === 'integer' || part.type === 'fraction'
-				? new Digit(this, part.type, startDigitsAtZero ? 0 : part.value, {
+				? new Digit(this, part.type, startDigitsAtZero ? 0 : part.value, part.place, {
 						...props,
 						onRemove: this.onCharRemove(part.key)
 					})
@@ -546,6 +555,7 @@ class Digit extends Char<KeyedDigitPart> {
 		section: Section,
 		_: KeyedDigitPart['type'],
 		value: KeyedDigitPart['value'],
+		private place: KeyedDigitPart['place'],
 		opts?: CharOptions
 	) {
 		const numbers = Array.from({ length: 10 }).map((_, i) => {
@@ -582,7 +592,7 @@ class Digit extends Char<KeyedDigitPart> {
 	#prevValue?: KeyedDigitPart['value']
 
 	get trend() {
-		const rootTrend = this.flow.getComputedTrend()
+		const rootTrend = this.flow.computedTrend
 		if (rootTrend === Trend.NONE) {
 			return getTrend(this.value, this.#prevValue)
 		}
@@ -610,6 +620,28 @@ class Digit extends Char<KeyedDigitPart> {
 		this.value = value
 	}
 
+	getDiff() {
+		const continuous = this.flow.continuous
+		if (continuous) {
+			let diff = getDiffAtPlace(this.flow.prevVal, this.flow.value, this.place)
+			console.log(this.flow.prevVal, this.flow.value, this.place, diff)
+			if (typeof continuous === 'number') {
+				const sign = Math.sign(diff)
+				let absDiff = Math.abs(diff)
+				const spins = Math.ceil(absDiff / 10)
+				if (spins > continuous) absDiff -= (spins - continuous) * 10
+				return sign * absDiff
+			}
+			return diff
+		}
+		// Loop around if need be:
+		if (this.trend === Trend.DOWN && this.value > this.#prevValue!)
+			return this.value - 10 - this.#prevValue!
+		else if (this.trend === Trend.UP && this.value < this.#prevValue!)
+			return 10 - this.#prevValue! + this.value
+		return this.value - this.#prevValue!
+	}
+
 	didUpdate(parentRect: DOMRect) {
 		const rect = this.el.getBoundingClientRect()
 		const offset = rect[this.section.justify] - parentRect[this.section.justify]
@@ -626,15 +658,8 @@ class Digit extends Char<KeyedDigitPart> {
 			}
 		)
 
-		if (this.value === this.#prevValue) return
-
-		const trend = this.trend
-		let diff = this.value - this.#prevValue!
-		// Loop around if need be:
-		if (trend === Trend.DOWN && this.value > this.#prevValue!)
-			diff = this.value - 10 - this.#prevValue!
-		if (trend === Trend.UP && this.value < this.#prevValue!)
-			diff = 10 - this.#prevValue! + this.value
+		const diff = this.getDiff()
+		if (diff === 0) return
 
 		this.#roll.classList.add('is-spinning')
 		this.#roll.animate(

@@ -31,6 +31,7 @@ export type NumberFlowProps = React.HTMLAttributes<NumberFlowElement> & {
 	format?: Format
 	isolate?: boolean
 	trend?: (typeof NumberFlowElement)['prototype']['trend']
+	continuous?: (typeof NumberFlowElement)['prototype']['continuous']
 	fadeTiming?: (typeof NumberFlowElement)['prototype']['fadeTiming']
 	xTiming?: (typeof NumberFlowElement)['prototype']['xTiming']
 	spinTiming?: (typeof NumberFlowElement)['prototype']['spinTiming']
@@ -59,6 +60,7 @@ class NumberFlowImpl extends React.Component<NumberFlowImplProps> {
 		if (this.#el) {
 			this.#el.manual = !this.props.isolate
 			if (this.props.trend != null) this.#el.trend = this.props.trend
+			if (this.props.continuous != null) this.#el.continuous = this.props.continuous
 			if (this.props.fadeTiming) this.#el.fadeTiming = this.props.fadeTiming
 			if (this.props.xTiming) this.#el.xTiming = this.props.xTiming
 			if (this.props.spinTiming) this.#el.spinTiming = this.props.spinTiming
@@ -94,6 +96,7 @@ class NumberFlowImpl extends React.Component<NumberFlowImplProps> {
 			// These are set in updateNonPartsProps, so ignore them here:
 			isolate,
 			trend,
+			continuous,
 			fadeTiming,
 			xTiming,
 			spinTiming,

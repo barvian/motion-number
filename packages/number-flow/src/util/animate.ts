@@ -12,5 +12,3 @@ export function frames<F extends string | (number | null)>(
 	const length = Math.trunc((durationMs / 1000) * fps)
 	return Array.from({ length }, (_, i) => frame(i / (length - 1)))
 }
-
-export const lerp = (min: number, max: number, weight: number) => min + (max - min) * weight

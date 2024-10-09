@@ -4,15 +4,15 @@ import ReactNav from './Nav'
 import pkg from '/../packages/number-flow/package.json'
 
 const repoPath = 'barvian/motion-number'
-const repo = await fetch(`https://api.github.com/repos/${repoPath}`, {
-	headers: {
-		Authorization: `Bearer ${GITHUB_TOKEN}`,
-		'X-GitHub-Api-Version': '2022-11-28'
-	}
-}).then((r) =>
-	r.ok ? r.json() : Promise.reject(`Could not fetch repo ${repoPath}: ${r.statusText}`)
-)
-const stargazers: number = repo.stargazers_count
+// const repo = await fetch(`https://api.github.com/repos/${repoPath}`, {
+// 	headers: {
+// 		Authorization: `Bearer ${GITHUB_TOKEN}`,
+// 		'X-GitHub-Api-Version': '2022-11-28'
+// 	}
+// }).then((r) =>
+// 	r.ok ? r.json() : Promise.reject(`Could not fetch repo ${repoPath}: ${r.statusText}`)
+// )
+const stargazers: number = 12 //repo.stargazers_count
 const formattedStars = stargazers.toLocaleString('en-US', {
 	notation: 'compact',
 	compactDisplay: 'short'

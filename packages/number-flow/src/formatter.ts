@@ -13,7 +13,7 @@ export type NumberPart = DigitPart | SymbolPart
 
 export type NumberPartKey = string
 type KeyedPart = { key: NumberPartKey }
-export type KeyedDigitPart = DigitPart & KeyedPart
+export type KeyedDigitPart = DigitPart & KeyedPart & { place: number }
 export type KeyedSymbolPart = SymbolPart & KeyedPart
 export type KeyedNumberPart = KeyedDigitPart | KeyedSymbolPart
 
@@ -21,7 +21,7 @@ export type Format = Omit<Intl.NumberFormatOptions, 'notation'> & {
 	notation?: Exclude<Intl.NumberFormatOptions['notation'], 'scientific' | 'engineering'>
 }
 
-export type Value = Parameters<typeof Intl.NumberFormat.prototype.formatToParts>[0]
+export type Value = Exclude<Parameters<typeof Intl.NumberFormat.prototype.formatToParts>[0], bigint>
 
 export function partitionParts(value: Value, formatter: Intl.NumberFormat) {
 	const parts = formatter.formatToParts(value)
@@ -33,8 +33,11 @@ export function partitionParts(value: Value, formatter: Intl.NumberFormat) {
 
 	const counts: Partial<Record<NumberPartType, number>> = {}
 	const generateKey = (type: NumberPartType) => {
-		if (!counts[type]) counts[type] = 0
-		return `${type}:${counts[type]++}`
+		const place = counts[type] == null ? (counts[type] = 0) : ++counts[type]
+		return {
+			key: `${type}:${place}`,
+			place
+		}
 	}
 
 	let formatted = ''
@@ -54,16 +57,16 @@ export function partitionParts(value: Value, formatter: Intl.NumberFormat) {
 			_integer.push({ type, value: part.value })
 		} else if (type === 'decimal') {
 			seenDecimal = true
-			fraction.push({ type, value: part.value, key: generateKey(type) })
+			fraction.push({ type, value: part.value, ...generateKey(type) })
 		} else if (type === 'fraction') {
 			fraction.push(
-				...part.value.split('').map((d) => ({ type, value: parseInt(d), key: generateKey(type) }))
+				...part.value.split('').map((d) => ({ type, value: parseInt(d), ...generateKey(type) }))
 			)
 		} else {
 			;(seenInteger || seenDecimal ? post : pre).push({
 				type,
 				value: part.value,
-				key: generateKey(type)
+				...generateKey(type)
 			})
 		}
 	}
@@ -71,7 +74,7 @@ export function partitionParts(value: Value, formatter: Intl.NumberFormat) {
 	const integer: KeyedNumberPart[] = []
 	// Key the integer parts RTL, for better layout animations
 	for (let i = _integer.length - 1; i >= 0; i--) {
-		integer.unshift({ ..._integer[i]!, key: generateKey(_integer[i]!.type) })
+		integer.unshift({ ..._integer[i]!, ...generateKey(_integer[i]!.type) })
 	}
 
 	return {

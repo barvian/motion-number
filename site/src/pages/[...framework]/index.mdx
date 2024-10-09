@@ -7,6 +7,7 @@ import Pre from '@/components/Pre.astro';
 import NumberFlow from '@number-flow/react'
 export const components = {pre: Pre}
 import TimingsDemo from './_demos/Timings'
+import ContinuousDemo from './_demos/Continuous'
 import IsolateDemo from './_demos/Isolate'
 import TrendDemo from './_demos/Trend'
 import Union from '@/components/Union.astro'
@@ -63,6 +64,14 @@ want to animate number changes without conveying an overall increase or decrease
 - `"decreasing":` The digits always go down.
 
 <TrendDemo client:visible />
+
+### `continuous: `<Union class="text-muted" types={["boolean", "number"]} />
+
+If `continuous` is set, `<NumberFlow>` will make sure to pass through every
+number in between the previous and new one. If `continuous` is a number, it will be the limit of
+full rotations each digit can perform. Implies `trend={true}`.
+
+<ContinuousDemo client:visible />
 
 ### `isolate: `<code className="text-muted">boolean</code>
 
