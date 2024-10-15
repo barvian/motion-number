@@ -35,6 +35,11 @@ export default {
 		screens: {
 			xs: '20rem',
 			...screens
+		},
+		extend: {
+			spacing: {
+				'16.5': '4.125rem'
+			}
 		}
 	},
 	plugins: [fluid, typography]

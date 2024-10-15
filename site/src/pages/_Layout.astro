@@ -5,6 +5,7 @@ import preview from '../assets/preview.png'
 import { getImage } from 'astro:assets'
 import pkg from '/../package/package.json'
 import Hero from './_Hero'
+import Notice from '../components/Notice'
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site)
 
@@ -54,6 +55,9 @@ const app = {
 		<meta name="twitter:description" content={frontmatter.description} />
 		<script type="application/ld+json" set:html={JSON.stringify(app)} />
 	</head>
+	<header>
+		<Notice />
+	</header>
 	<main class="~py-16/32">
 		<Hero
 			client:load
